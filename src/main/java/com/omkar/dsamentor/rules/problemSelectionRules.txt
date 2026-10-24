@@ -1,0 +1,264 @@
+# DSA Mentor — Problem Selection Rules
+
+## 1. Purpose
+
+DSA Mentor selects DSA problems according to the user's current DSA level.
+
+The selection rules determine:
+- Which learning stages are allowed.
+- Which topics the user can practice.
+- Which difficulty levels are allowed.
+- Which problem styles are allowed.
+
+These rules are implemented directly inside the SQL query in:
+
+`src/main/java/com/omkar/dsamentor/repository/DsaProblemRepository.java`
+
+The old `QuestionSelectionRules.java` class is no longer required if nothing else references it.
+
+---
+
+## 2. User Level Rules
+
+### A. NEW / BEGINEER
+
+**Purpose:** Start DSA learning from the basics.
+
+- Learning stage: 0 only
+- Topic: `Logic Building`
+- Difficulty: `EASY`, `MEDIUM`, `HARD`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+Note: These questions must be inserted into `dsa_problems`. Until Stage 0 questions exist, this level can return an empty list.
+
+### B. BEGINEER1
+
+**Purpose:** Practice beginner-level Array problems.
+
+- Learning stages: 1–4
+- Topic: `Array`
+- Difficulty: `EASY`, `MEDIUM`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+### C. BEGINEER2
+
+**Purpose:** Practice beginner-level String problems.
+
+- Learning stages: 1–4
+- Topic: `String`
+- Difficulty: `EASY`, `MEDIUM`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+### D. BEGINEER3
+
+**Purpose:** Practice beginner-level Linked List problems.
+
+- Learning stages: 1–4
+- Topic: `Linked List`
+- Difficulty: `EASY`, `MEDIUM`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+Only the `topic` column is used for topic selection. There is no separate Stack-pattern filter.
+
+### E. INTERMEDIATE / INTERMEDIATE1
+
+**Purpose:** Practice Array problems across a wider range of learning stages.
+
+- Learning stages: 1–8
+- Topic: `Array`
+- Difficulty: `EASY`, `MEDIUM`, `HARD`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+`INTERMEDIATE` and `INTERMEDIATE1` follow the same rules.
+
+### F. INTERMEDIATE2
+
+**Purpose:** Practice String problems at the intermediate level.
+
+- Learning stages: 1–8
+- Topic: `String`
+- Difficulty: `EASY`, `MEDIUM`, `HARD`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+### G. INTERMEDIATE3
+
+**Purpose:** Practice Linked List and Intervals problems at the intermediate level.
+
+- Learning stages: 1–8
+- Topics: `Linked List`, `Intervals`
+- Difficulty: `EASY`, `MEDIUM`, `HARD`
+- Problem styles: `STRAIGHTFORWARD`, `TRICKY`
+
+A question must match one of the allowed topics.
+
+### H. MASTER
+
+**Purpose:** Practice eligible problems across all configured topics and learning stages.
+
+- Learning stages: 1–12
+- Topics:
+  1. Array
+  2. String
+  3. Linked List
+  4. Math
+  5. Intervals
+  6. Heap
+  7. Recursion
+  8. Backtracking
+  9. Tree
+  10. Graph
+  11. Dynamic Programming
+  12. Greedy
+
+Difficulty and style rules:
+
+- `MEDIUM`: allowed with either problem style.
+- `HARD`: allowed with either problem style.
+- `EASY`: allowed only when `problem_style = 'TRICKY'`.
+
+Equivalent SQL condition:
+
+    difficulty IN ('MEDIUM', 'HARD')
+    OR
+    (
+        difficulty = 'EASY'
+        AND problem_style = 'TRICKY'
+    )
+
+Important: The Easy difficulty condition and the Tricky style condition must remain together. Easy Straightforward questions must not be selected for MASTER.
+
+---
+
+## 3. Common SQL Conditions
+
+Every selection applies the following conditions:
+
+### Active questions only
+
+    is_active = 1
+
+Inactive questions must not be returned.
+
+### Learning stage
+
+The SQL query uses `learning_stage` to restrict problems to the level's permitted stage range.
+
+Examples:
+
+- `BETWEEN 1 AND 4`: includes stages 1, 2, 3, and 4.
+- `BETWEEN 1 AND 8`: includes stages 1 through 8.
+- `BETWEEN 1 AND 12`: includes stages 1 through 12.
+
+`BETWEEN` includes both boundary values.
+
+### Topic
+
+The `topic` column decides which subject a question belongs to.
+
+Examples:
+
+- `topic = 'Array'`
+- `topic = 'String'`
+- `topic IN ('Linked List', 'Intervals')`
+
+### Difficulty
+
+The `difficulty` column stores values such as `EASY`, `MEDIUM`, and `HARD`.
+
+The SQL rules determine which of these values are permitted for each level.
+
+### Problem style
+
+The `problem_style` column stores either:
+
+- `STRAIGHTFORWARD`
+- `TRICKY`
+
+For normal levels, both styles are allowed. MASTER has the special difficulty/style relationship described above.
+
+---
+
+## 4. How the Java Repository Selects Questions
+
+The method is:
+
+    DsaProblemRepository.getEligibleProblems(user_dsaLevel)
+
+For example:
+
+    DsaProblemRepository.getEligibleProblems("INTERMEDIATE1")
+
+The process is:
+
+1. The caller supplies the user's DSA level.
+2. A `PreparedStatement` binds that level to the query's single `?` placeholder.
+3. SQL normalizes the level with `UPPER(TRIM(?))`, allowing lowercase input or accidental surrounding spaces.
+4. The SQL conditions match the appropriate level's rules.
+5. The database returns eligible active questions.
+6. Java reads each result row and creates a `DSAProblem` object.
+7. The objects are added to a `List<DSAProblem>`.
+8. The method returns the list to its caller.
+
+The repository does not require a separate SQL query for every level.
+
+---
+
+## 5. Responsibilities of Each Component
+
+### DSAProblem.java
+
+Represents one DSA problem as a Java object.
+
+It holds properties such as the problem ID, title, topic, difficulty, learning stage, estimated time, URLs, active status, and problem style.
+
+### DsaProblemRepository.java
+
+Responsible for database retrieval and filtering questions according to the user's DSA level.
+
+It currently contains the complete SQL selection rules.
+
+### DailyTaskService.java
+
+Will be responsible for the daily-task logic, including choosing eligible unsolved questions that fit the user's available study time.
+
+### UserProblemProgressRepository
+
+Will work with `user_problem_progress` to identify and record the user's solved questions.
+
+### DailyTaskUi.java
+
+Will handle displaying the daily tasks and interacting with the user during the practice session.
+
+---
+
+## 6. What Problem Selection Does NOT Do Yet
+
+The current `getEligibleProblems()` method returns all eligible active questions for the supplied level.
+
+It does not yet:
+
+- Remove questions already solved by the user.
+- Randomly choose today's question set.
+- Fit the selected questions to the user's daily study-time limit.
+- Record questions solved during the session.
+- Promote the user after completing all eligible questions.
+- Detect when the user has completed the entire question bank for their level.
+
+These responsibilities belong to the upcoming service and progress-tracking implementation.
+
+---
+
+## 7. Important Maintenance Rules
+
+1. If a DSA level's stage range changes, update its condition in the SQL query.
+2. If a level's allowed topics change, update its topic condition.
+3. If difficulty or problem-style eligibility changes, update its conditions carefully.
+4. If a new topic is added for MASTER, include it in the MASTER topic list.
+5. Keep the values in SQL consistent with the values stored in the database.
+6. Preserve MASTER's special rule: Medium and Hard allow both styles, while Easy requires Tricky.
+7. Preserve the currently used spelling `BEGINEER` unless the stored values, onboarding logic, and SQL are deliberately updated together.
+8. If the selection rules are modified, review the related Java logic and update any tests whose expected results are no longer valid.
+
+---
+
+mvn exec:java "-Dexec.mainClass=com.omkar.dsamentor.Main"
