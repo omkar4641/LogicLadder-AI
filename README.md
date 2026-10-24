@@ -2,8 +2,6 @@
 
 **Your personal AI-guided journey to mastering Data Structures and Algorithms.**
 
-![LogicLadder AI logo](assets/logicladder-logo.svg)
-
 LogicLadder AI is a Java-based, console-driven DSA learning platform that helps learners organize daily practice, track their progress, and understand problem-solving approaches with AI assistance. It combines a structured question bank with personalized study planning and AI-generated coding contests powered by Groq.
 
 ![Java](https://img.shields.io/badge/Java-21%2B-ED8B00?logo=openjdk&logoColor=white) ![Maven](https://img.shields.io/badge/Build-Maven-C71A36?logo=apachemaven&logoColor=white) ![MySQL](https://img.shields.io/badge/Database-MySQL-4479A1?logo=mysql&logoColor=white) ![Groq](https://img.shields.io/badge/AI-Groq-F55036)
